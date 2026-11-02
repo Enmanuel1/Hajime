@@ -165,4 +165,28 @@ public class SqlCoachingRepository implements CoachingRepository {
         .query(Goal.class)
         .optional();
   }
+
+  public Optional<Goal> goalInOrganization(UUID organization, UUID id) {
+    return db.sql("select * from goal where organization_id=:org and id=:id")
+        .param("org", organization)
+        .param("id", id)
+        .query(Goal.class)
+        .optional();
+  }
+
+  public Goal closeGoal(Goal before, Goal after) {
+    return db.sql(
+            "update goal set status=:status,updated_at=:at,version=version+1 where id=:id and organization_id=:org and version=:version and status='ACTIVE' returning *")
+        .param("status", after.status().name())
+        .param("at", java.sql.Timestamp.from(after.updatedAt()))
+        .param("id", before.id())
+        .param("org", before.organizationId())
+        .param("version", before.version())
+        .query(Goal.class)
+        .optional()
+        .orElseThrow(
+            () ->
+                BusinessException.conflict(
+                    "CONCURRENT_MODIFICATION", "Goal changed. Reload before retrying."));
+  }
 }

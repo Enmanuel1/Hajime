@@ -2,7 +2,10 @@
 
 ## Verdict
 
-The backend now supports real-account enrollment into a dojo and the training/coaching path without development memberships. This is a useful base for a closed pilot. It is not yet a complete public MVP: journal corrections, goal completion, account recovery and deployment/restore operations still need explicit acceptance checks.
+The core backend flow is functionally ready for a closed pilot: real accounts, profiles, dojo enrollment,
+training correction/sharing, coaching, goal closure and password recovery without cloud services.
+Automated tests and live checks pass. This is not a public deployment sign-off: the chosen host, real HTTPS/proxy
+configuration, secret storage, backup scheduling/off-machine retention and frontend integration still need validation. Email ownership verification is not implemented.
 
 ## KEEP
 
@@ -15,13 +18,20 @@ The backend now supports real-account enrollment into a dojo and the training/co
 - Leased, bounded outbox with destination deduplication and explicit dead-letter recovery. Local receipts are technical delivery evidence, not a user inbox or external notification provider.
 - Composition, small records and explicit invariants. Add polymorphism when a second behavior actually needs it; inheritance and generic base services would not improve these slices.
 
-## REFACTOR NOW / CLOSE FOR MVP
+## MVP work completed
 
-1. **Dojo membership onboarding — implemented in this change.** Organization creation, scoped director role, paginated own organizations/members/invitations, recipient acceptance, seven-day expiry and role deactivation. Protected director/admin roles cannot be granted or removed through invitation/membership endpoints. Transactional audit and concurrent acceptance/revocation tests included.
-2. **Correct training before sharing — next product slice.** `training/domain/TrainingSession.java` has creation/share/review but no content-edit transition. Add owner-only update while RECORDED with expected version; preserve ID, author, provenance and creation time. Reject edits after sharing and stale saves. Cover simultaneous edit/share and scoped ownership. This prevents users recreating an incorrect record.
-3. **Finish goals.** `coaching/domain/Goal.java` defines ACHIEVED/CANCELLED, but the API only creates/reads goals. Define who may complete/cancel, require expected version, audit transitions and expose the resulting state to the athlete. Avoid artificial progress percentages.
-4. **Recover access.** Add password change and session revocation; then a real password recovery channel. Email verification/recovery are not implemented. A public reset endpoint without proof of ownership is not acceptable; do not substitute a development token printed by production logs.
-5. **Release operations.** Validate stable JWT secret across restart, HTTPS/proxy behavior, chosen client origins, backup plus actual restore, and a fresh production-profile startup. Compose and Dockerfile are useful local packaging, not evidence that those operational checks passed. No new AWS service or workflow is required for these checks.
+1. **Dojo onboarding.** Organization creation, scoped director role, paginated own organizations/members/invitations, recipient acceptance, seven-day expiry and nonprotected role deactivation. Transactional audit and concurrency tests included.
+2. **Correct training before sharing.** Owner-only full-content update while RECORDED with required expected version. Preserves ID, author, source and creation time. Optional dojo selection is revalidated. Shared/reviewed history cannot be edited. Simultaneous edit/share admits only one version's write.
+3. **Finish goals.** Coaches with ASSIGN_GOAL may complete/cancel ACTIVE goals using expected version and organization scope. Athletes read final states. Transitions are audited and competing completion/cancellation commits only once.
+4. **Recover access.** Current-password-proven change revokes every session and recovery code. Offline recovery uses a user-saved, rotatable single-use random code stored only as a hash. No email or public administrator bypass. Rate limits and credential/session lock ordering are tested.
+5. **Local release checks.** Production-profile packaged startup, stable JWT across restart, explicit-origin browser access and complete database backup/restore are verified. The script refuses restoration over an existing populated target. Public network and hosting checks remain deployment-dependent.
+
+## Next acceptance gate
+
+Connect the real frontend and exercise the account → save recovery code → dojo enrollment → training edit/share →
+coach feedback → goal closure flow. Choose the host/domain, configure HTTPS and trusted ingress, retain the signing key,
+schedule private off-machine backups and repeat recovery there. Keep rollout closed until those checks pass; decide on
+email verification before relying on verified email ownership for account discovery or public onboarding.
 
 ## REFACTOR LATER
 
@@ -41,6 +51,17 @@ Invitations target an existing account UUID and grant only PRACTITIONER, INSTRUC
 
 ## Verification
 
-A clean source copy avoids the editor rewriting compiled classes during Maven builds. Temurin 21, disposable PostgreSQL and Maven `clean verify` passed: 66 tests, zero failures/errors/skips, packaging, Spotless and module/HTTP boundary checks. Six new production-authenticated integration tests cover real enrollment through coaching, tenant/privilege isolation, expiry/replacement, revocation, concurrent acceptance and concurrent acceptance/deactivation. Historical migrations and developer database were not modified.
+An isolated source copy prevents editor-generated classes from interfering with Maven. Temurin 21 and
+PostgreSQL Testcontainers: **76 tests, zero failures/errors/skips**, packaging, Spotless, Modulith and
+transport-boundary checks passed. The suite includes version races, tenant isolation, consumed/replaced
+recovery codes, session revocation across devices, concurrent refresh/password change, rate limiting and CORS.
 
-See `organization-onboarding.md` and the runnable `postman/collections/HAJIME-organizations.postman_collection.json` for the new contract. A live Postman CLI run against the packaged backend without dev/test profiles and a fresh disposable PostgreSQL passed: 24 requests, 27 assertions, exit 0. Temporary API/database were stopped. Results were kept local and not published to Postman cloud.
+Live Postman CLI against the packaged prod-profile API and disposable PostgreSQL: **42 requests / 49 assertions,
+zero failures, exit 0**. No development aliases or mocks. The expanded collection is
+`postman/collections/HAJIME-mvp.postman_collection.json`.
+
+Operational verification: API restart with a stable key retained JWT authentication; a private dump restored
+all **27 tables with identical row counts and content fingerprints** into another empty database. The API
+started on the restored schema V12 and accepted an existing session. Restoring over a populated target was
+rejected. Temporary API/database and the test dump were removed. No public deploy, developer database
+migration or commit was performed.

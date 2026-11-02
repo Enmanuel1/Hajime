@@ -145,4 +145,28 @@ public class CoachingService {
   private List<UUID> profiles() {
     return practitioners.ownedBy(user.id()).stream().map(Practitioners.Profile::id).toList();
   }
+
+  @Transactional(readOnly = true)
+  public Goal organizationGoal(UUID org, UUID id) {
+    access.requirePermission(org, user.id(), Permission.ASSIGN_GOAL);
+    return scopedGoal(org, id);
+  }
+
+  @Transactional
+  public Goal closeGoal(UUID org, UUID id, long version, Goal.Status target) {
+    var actor = user.id();
+    access.requirePermission(org, actor, Permission.ASSIGN_GOAL);
+    var before = scopedGoal(org, id);
+    if (before.version() != version)
+      throw BusinessException.conflict("CONCURRENT_MODIFICATION", "Reload goal before closing.");
+    var result = repository.closeGoal(before, before.close(target, clock.instant()));
+    events.publishEvent(new GoalStatusChanged(result.id(), org, actor, result.status().name()));
+    return result;
+  }
+
+  private Goal scopedGoal(UUID org, UUID id) {
+    return repository
+        .goalInOrganization(org, id)
+        .orElseThrow(() -> BusinessException.missing("GOAL_NOT_FOUND"));
+  }
 }

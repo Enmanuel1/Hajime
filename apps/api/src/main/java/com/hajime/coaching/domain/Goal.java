@@ -88,4 +88,31 @@ public record Goal(
     NORMAL,
     HIGH
   }
+
+  public Goal close(Status target, Instant now) {
+    require(
+        target == Status.ACHIEVED || target == Status.CANCELLED,
+        "Goal may only close as achieved or cancelled.");
+    if (status != Status.ACTIVE)
+      throw com.hajime.shared.BusinessException.conflict(
+          "INVALID_STATE_TRANSITION", "Only active goals can be closed.");
+    return new Goal(
+        id,
+        practitionerProfileId,
+        organizationId,
+        martialArtId,
+        assignedByUserId,
+        sourceTrainingSessionId,
+        relatedTechniqueId,
+        title,
+        objective,
+        coachObservation,
+        priority,
+        reviewDate,
+        target,
+        source,
+        createdAt,
+        now,
+        version + 1);
+  }
 }

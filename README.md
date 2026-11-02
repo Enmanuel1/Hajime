@@ -976,3 +976,10 @@ The goal is to ship a martial arts platform that can grow without becoming impos
 ### Real dojo onboarding
 
 Real accounts can now create a dojo, invite existing accounts, accept invitations and use coaching without development memberships. See [organization onboarding](docs/organization-onboarding.md). Runnable collection: `postman/collections/HAJIME-organizations.postman_collection.json`. Migration V11 is applied on the next application startup.
+
+### MVP lifecycle and account security
+
+The API supports owner edits before sharing, coach goal completion/cancellation, password change and
+single-use offline account recovery. See [API](docs/api.md), [account security](docs/local-authentication.md)
+and [release operations](docs/release-operations.md). Import `postman/collections/HAJIME-mvp.postman_collection.json`
+for the complete real-account walkthrough. V12 adds hashed recovery codes on the next backend startup.

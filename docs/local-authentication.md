@@ -14,6 +14,9 @@ Cache-Control: no-store and Pragma: no-cache. There are no authentication cookie
 | POST /auth/login | email, password | 200 + tokens and user |
 | POST /auth/refresh | refreshToken | 200 + replacement access/refresh tokens |
 | POST /auth/logout | refreshToken | 204, revoke that session |
+| POST /me/password | currentPassword, newPassword | 204, revoke all sessions and recovery code |
+| POST /me/recovery-code | currentPassword | 200, new single-use recoveryCode (shown once) |
+| POST /auth/recover | email, recoveryCode, newPassword | 204, consume code and revoke all sessions; No Auth |
 | POST /me/practitioner-profiles | martialArtCode, optional weightKg | 201 + owned profile and Location |
 | GET /me/practitioner-profiles | none | 200, own profiles |
 | GET /me/practitioner-profiles/{id} | none | 200 own profile / 404 outside ownership |
@@ -85,7 +88,7 @@ access token after restarting. The refresh/session database still exists across 
 
 Defaults under `hajime.auth`: issuer `hajime`, audience `hajime-app`, access-ttl PT15M, session-ttl P30D,
 rate-window PT15M, max-ip-attempts 100, max-account-attempts 10. Time and issuer/audience are explicit.
-Auth IP limits cover register/login/refresh/logout; account limits cover login. Counters commit even
+Auth IP limits cover all POST /auth routes, including recovery. Account buckets cover login, recovery and authenticated password proof (separate namespaces). Counters commit even
 when the login fails. Exceeding limits returns 429 RATE_LIMITED; the IP response includes Retry-After.
 The direct peer IP is used, not an arbitrary client-supplied forwarded header. Configure trusted ingress
 before proxy deployment; otherwise all proxied users may share the proxy's rate bucket.
@@ -97,8 +100,33 @@ always uses real JWT authentication; a bad Bearer token cannot fall back to a de
 skip development impersonation. Non-dev profiles never accept the dev header and require the signing key.
 
 Registration currently allows personal accounts without email verification. No dojo membership or coaching
-permission is granted. Membership administration/invitations, password recovery/change, email verification,
-MFA and public account lifecycle remain separate work. Serve production traffic over HTTPS and store client
+permission is granted. Membership administration/invitations and password change/offline recovery are implemented. Email verification,
+MFA, account deletion and email-based recovery remain separate work. Serve production traffic over HTTPS and store client
 tokens securely; do not log them or sync real refresh/password values into shared Postman environments.
 
 V10 adds local credential/session/rate tables without changing previous migrations or removing demo users.
+
+
+## Password change and offline recovery
+
+`POST /me/password` requires a real account's Bearer token and correct current password. New passwords
+follow the 15–128 character policy and must differ from the supplied current password. On success every
+session, including the caller, is revoked and any recovery code is invalidated. Log in again. Unknown
+ownership/role fields are rejected; no target user ID is accepted.
+
+`POST /me/recovery-code` requires a Bearer token and current password. It returns `{"recoveryCode":"..."}`
+with no-store headers. Save that value outside the app in a private place; there is no read-back endpoint.
+A new generation immediately replaces the previous code. This is a 256-bit random value; only SHA-256 is
+stored in V12's nullable recovery_code_hash. The code has no time expiry, but is single-use, rotatable,
+and invalidated by password change/recovery. It is a credential, not an email verification mechanism.
+
+If the password is lost, call `POST /auth/recover` with email, saved recoveryCode and newPassword, using
+No Auth. Incorrect, consumed, disabled-account and unknown-account recovery details all return
+401 INVALID_RECOVERY_CODE. Valid recovery consumes the code and changes the password atomically, then
+revokes every session. It does not auto-login or issue replacement tokens. Log in with the new password
+and generate/store a new recovery code. Without both password and a saved code there is no self-service
+recovery in this pilot; no public administrative bypass was added.
+
+Security actions are audited without passwords, tokens, codes or email metadata. Credential locks precede
+session locks in refresh/change/recovery so concurrent refresh cannot leave a usable old session or invert
+lock ordering. Rate counters commit independently of rejected requests.

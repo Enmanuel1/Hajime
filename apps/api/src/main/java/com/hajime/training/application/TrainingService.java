@@ -119,4 +119,25 @@ public class TrainingService {
         .owned(id, practitioners.ownedBy(actor).stream().map(Practitioners.Profile::id).toList())
         .orElseThrow(() -> BusinessException.missing("TRAINING_NOT_FOUND"));
   }
+
+  @Transactional
+  public TrainingView edit(UUID id, UpdateTraining command) {
+    var actor = user.id();
+    var session = owned(id, actor);
+    var before = session.snapshot();
+    practitioners.requireOwned(before.practitionerProfileId(), actor);
+    if (!Objects.equals(before.version(), command.version()))
+      throw BusinessException.conflict("CONCURRENT_MODIFICATION", "Reload training before saving.");
+    policies.resolve(new MartialArtCode(catalog.art(before.martialArtId()).code()));
+    if (command.organizationId() != null) {
+      access.requireMember(command.organizationId(), actor);
+      access.requireMartialArt(command.organizationId(), before.martialArtId());
+    }
+    var content = command.toContent();
+    catalog.requireTechniques(
+        before.martialArtId(),
+        content.techniques().stream().map(TrainingContent.TechniqueEntry::techniqueId).toList());
+    return TrainingViews.from(
+        repository.save(session.edit(content, command.organizationId(), clock.instant())));
+  }
 }

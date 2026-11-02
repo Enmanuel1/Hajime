@@ -23,4 +23,8 @@ public interface CoachingRepository {
   PageResult<Goal> goals(List<UUID> profiles, Goal.Status status, int page, int size);
 
   Optional<Goal> goal(List<UUID> profiles, UUID id);
+
+  Optional<Goal> goalInOrganization(UUID organization, UUID id);
+
+  Goal closeGoal(Goal before, Goal after);
 }

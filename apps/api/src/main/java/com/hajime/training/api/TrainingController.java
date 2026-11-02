@@ -45,4 +45,9 @@ public class TrainingController {
   public TrainingView share(@PathVariable UUID id, @Valid @RequestBody ShareRequest request) {
     return service.share(id, request.version());
   }
+
+  @PutMapping("/{id}")
+  public TrainingView edit(@PathVariable UUID id, @Valid @RequestBody UpdateTraining request) {
+    return service.edit(id, request);
+  }
 }

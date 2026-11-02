@@ -117,7 +117,11 @@ public class AuthenticationService {
             status -> {
               var token = accounts.refresh(hash);
               if (token.isEmpty()) return null;
-              var session = accounts.lockSession(token.get().sessionId()).orElse(null);
+              var initial = accounts.session(token.get().sessionId()).orElse(null);
+              if (initial == null) return null;
+              // Credential first, then session: same order as password change/recovery.
+              var account = accounts.lockAccount(initial.userId());
+              var session = accounts.lockSession(initial.id()).orElse(null);
               if (session == null) return null;
               var current = accounts.refresh(hash).orElseThrow();
               var now = clock.instant();
@@ -126,7 +130,6 @@ public class AuthenticationService {
                 accounts.revoke(session.id(), now);
                 return null;
               }
-              var account = accounts.lockAccount(session.userId());
               if (!account.active()) {
                 accounts.revoke(session.id(), now);
                 return null;

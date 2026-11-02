@@ -55,4 +55,15 @@ public class AuditEvents {
     audit.record(
         e.actorUserId(), e.organizationId(), e.action(), e.entityType(), e.entityId(), Map.of());
   }
+
+  @EventListener
+  public void goalStatus(GoalStatusChanged e) {
+    audit.record(
+        e.actorUserId(), e.organizationId(), "GOAL_" + e.status(), "Goal", e.goalId(), Map.of());
+  }
+
+  @EventListener
+  public void security(com.hajime.identity.AccountSecurityChanged e) {
+    audit.record(e.userId(), null, e.action(), "Account", e.userId(), Map.of());
+  }
 }

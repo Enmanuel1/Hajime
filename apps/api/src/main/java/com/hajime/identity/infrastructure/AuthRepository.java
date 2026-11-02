@@ -128,4 +128,50 @@ public class AuthRepository {
             "delete from auth_session where id in (select id from auth_session where expires_at<clock_timestamp()-interval '1 day' order by expires_at,id limit 1000 for update skip locked)")
         .update();
   }
+
+  public Optional<Account> account(UUID id) {
+    return db.sql(
+            "select c.user_id as id,c.email,c.password_hash,c.active,u.display_name from local_credential c join app_user u on u.id=c.user_id where c.user_id=:id")
+        .param("id", id)
+        .query(Account.class)
+        .optional();
+  }
+
+  public Optional<Session> session(UUID id) {
+    return db.sql("select id,user_id,expires_at,revoked_at from auth_session where id=:id")
+        .param("id", id)
+        .query(Session.class)
+        .optional();
+  }
+
+  public void changePassword(UUID user, String hash) {
+    db.sql(
+            "update local_credential set password_hash=:hash,recovery_code_hash=null where user_id=:user")
+        .param("hash", hash)
+        .param("user", user)
+        .update();
+  }
+
+  public void recoveryCode(UUID user, String hash) {
+    db.sql("update local_credential set recovery_code_hash=:hash where user_id=:user")
+        .param("hash", hash)
+        .param("user", user)
+        .update();
+  }
+
+  public boolean consumeRecoveryCode(UUID user, String hash) {
+    return db.sql(
+                "update local_credential set recovery_code_hash=null where user_id=:user and recovery_code_hash=:hash and active")
+            .param("user", user)
+            .param("hash", hash)
+            .update()
+        == 1;
+  }
+
+  public void revokeAll(UUID user, Instant now) {
+    db.sql("update auth_session set revoked_at=:now where user_id=:user and revoked_at is null")
+        .param("now", Timestamp.from(now))
+        .param("user", user)
+        .update();
+  }
 }

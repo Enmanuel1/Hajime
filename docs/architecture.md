@@ -58,7 +58,7 @@ a day ago and cascades refresh history. Live families retain consumed hashes for
 PostgreSQL rate limits bound auth requests by direct peer address and login attempts by normalized account,
 without Redis. Defaults are 100/IP and 10/account per 15 minutes, counting attempts irrespective of success.
 Proxy deployments need deliberate trusted-forwarding/ingress configuration; arbitrary X-Forwarded-For is
-not trusted. Auth responses disable caching. There is no password recovery, email verification or MFA yet.
+not trusted. Auth responses disable caching. Password changes and one-time offline recovery codes are implemented; email verification and MFA are deferred.
 Open registration grants no dojo membership, coach role or official rank. These endpoints are suitable
 for the current pilot scope, not a claim that public signup lifecycle/operations are finished.
 

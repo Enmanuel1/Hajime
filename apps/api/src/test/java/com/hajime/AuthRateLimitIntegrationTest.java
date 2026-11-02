@@ -60,4 +60,30 @@ class AuthRateLimitIntegrationTest extends ProductionPostgresTest {
     assertThat(blocked.statusCode()).isEqualTo(429);
     assertThat(json.readTree(blocked.body()).path("code").asText()).isEqualTo("RATE_LIMITED");
   }
+
+  @Test
+  void recoveryAttemptsAreRateLimitedBeforeAValidCodeCanBeGuessed() throws Exception {
+    var email = UUID.randomUUID() + "@example.test";
+    for (int i = 0; i < 3; i++) {
+      var response =
+          HttpClient.newHttpClient()
+              .send(
+                  HttpRequest.newBuilder(
+                          URI.create("http://127.0.0.1:" + port + "/api/v1/auth/recover"))
+                      .header("Content-Type", "application/json")
+                      .POST(
+                          HttpRequest.BodyPublishers.ofString(
+                              json.writeValueAsString(
+                                  Map.of(
+                                      "email",
+                                      email,
+                                      "recoveryCode",
+                                      RefreshTokens.generate(),
+                                      "newPassword",
+                                      "A valid new private passphrase"))))
+                      .build(),
+                  HttpResponse.BodyHandlers.ofString());
+      assertThat(response.statusCode()).isEqualTo(i < 2 ? 401 : 429);
+    }
+  }
 }

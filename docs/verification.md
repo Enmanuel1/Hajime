@@ -124,3 +124,29 @@ Live Postman CLI: **24 requests / 27 assertions, zero failures, exit 0**, agains
 without development identities and a fresh disposable PostgreSQL. The temporary API/database were
 stopped after the run. This verifies the new collection against real service behavior; it is not a mock
 or a test against the developer's existing database. Results were kept local.
+
+
+## MVP lifecycle, offline recovery and release checks (2026-11-02)
+
+Temurin 21 and an isolated source copy: **76 tests, zero failures/errors/skips**, packaging, Spotless,
+module boundaries and transport boundaries passed. The initial full clean run passed with 75 tests;
+a final verify also passed after adding explicit recovery rate-limit coverage (76). New cases exercise
+full-content training replacement, immutable identity/provenance, stale versions, competing edit/share,
+coach-only goal closure, competing complete/cancel, password proof, all-device revocation, hashed/rotated/
+single-use recovery codes, concurrent recoveries and concurrent refresh/password change. Configurable
+CORS tests permit only the chosen browser origin and retain JWT requirements.
+
+Live Postman CLI against the packaged API with prod profile and fresh PostgreSQL: **42 requests /
+49 assertions, zero failures, exit 0**. Covers real dojo enrollment through editing/coaching/goal closure
+and password change/offline recovery. It did not use dev aliases or mocks; results remained local.
+
+Operational checks passed: stable-key restart kept an access token usable; a custom-format 0600 dump
+restored into a separate empty database; all 27 table counts/content fingerprints matched. Flyway V12
+validated on restored startup and an existing session authenticated. The restore script rejected a
+second restoration into the now-populated database. A first operational harness version queried Flyway
+versions as integers despite historical version 2.1; correcting that verification query produced a fully
+successful end-to-end run. This did not require changing any migration or application behavior.
+
+Temporary API/database/test dump were removed. V12 was not applied to the user's development database.
+Public HTTPS/proxy/hosting, scheduled off-machine backup retention and real frontend integration remain
+unverified. No dependency, cloud service, new workflow, public deployment or commit was added.

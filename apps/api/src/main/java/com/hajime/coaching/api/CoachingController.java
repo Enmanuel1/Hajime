@@ -65,4 +65,29 @@ public class CoachingController {
   public Goal goal(@PathVariable UUID id) {
     return service.goal(id);
   }
+
+  public record CloseGoal(
+      @jakarta.validation.constraints.NotNull @jakarta.validation.constraints.Min(0) Long version) {
+    @com.fasterxml.jackson.annotation.JsonAnySetter
+    public void unknown(String field, Object value) {
+      throw new IllegalArgumentException("Unknown goal close field.");
+    }
+  }
+
+  @GetMapping("/organizations/{org}/goals/{id}")
+  public Goal organizationGoal(@PathVariable UUID org, @PathVariable UUID id) {
+    return service.organizationGoal(org, id);
+  }
+
+  @PostMapping("/organizations/{org}/goals/{id}/complete")
+  public Goal complete(
+      @PathVariable UUID org, @PathVariable UUID id, @Valid @RequestBody CloseGoal request) {
+    return service.closeGoal(org, id, request.version(), Goal.Status.ACHIEVED);
+  }
+
+  @PostMapping("/organizations/{org}/goals/{id}/cancel")
+  public Goal cancel(
+      @PathVariable UUID org, @PathVariable UUID id, @Valid @RequestBody CloseGoal request) {
+    return service.closeGoal(org, id, request.version(), Goal.Status.CANCELLED);
+  }
 }

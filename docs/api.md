@@ -16,12 +16,16 @@ Base path: `/api/v1`. JSON request/response DTOs; UUID identifiers; ISO-8601 tim
 | DELETE | /organizations/{org}/members/{id} | MANAGE_MEMBERS; deactivate one membership, returns 204 |
 | GET | /me/practitioner-profiles | Own discipline profiles |
 | POST | /me/training-sessions | Record personal training |
+| PUT | /me/training-sessions/{id} | Owner, RECORDED only, required version, replace content/organization |
 | GET | /me/training-sessions | Own paginated history |
 | GET | /me/training-sessions/{id} | Own detail including technique and sparring entries |
 | POST | /me/training-sessions/{id}/share | Owner, current organization membership, expected version |
 | GET | /me/feedback | Own paginated feedback; optional trainingSessionId filter |
 | GET | /me/goals | Own goals; status defaults ACTIVE |
 | GET | /me/goals/{id} | Own goal detail |
+| GET | /organizations/{org}/goals/{id} | ASSIGN_GOAL; scoped goal detail |
+| POST | /organizations/{org}/goals/{id}/complete | ASSIGN_GOAL; ACTIVE → ACHIEVED, required version |
+| POST | /organizations/{org}/goals/{id}/cancel | ASSIGN_GOAL; ACTIVE → CANCELLED, required version |
 | GET | /organizations/{org}/training-reviews | REVIEW_TRAINING; status defaults PENDING |
 | GET | /organizations/{org}/training-reviews/{id} | REVIEW_TRAINING; shared session, review, feedback |
 | POST | /organizations/{org}/training-reviews/{id}/feedback | REVIEW_TRAINING; optional goal also requires ASSIGN_GOAL |
@@ -71,7 +75,7 @@ Read the review ID and version from the pending queue. POST to `/organizations/{
 
 `goal` is optional. The response contains `feedback` and optional `goal`. The goal's source session is set to the reviewed session. The entire request is atomic, including audit/outbox. An invalid optional goal leaves the review pending and creates no feedback. A reviewed session cannot receive a second initial review.
 
-For a separate goal, POST the inner goal object to `/organizations/{org}/practitioners/{id}/goals`; `sourceTrainingSessionId` is optional and, when supplied, must refer to shared training for that practitioner in the same organization. Title/objective/priority are required. Priorities: LOW, NORMAL, HIGH. Review date is optional and cannot be in the past. Goals have source ORGANIZATION and initial status ACTIVE. No fake percentage completion or goal update endpoints are exposed.
+For a separate goal, POST the inner goal object to `/organizations/{org}/practitioners/{id}/goals`; `sourceTrainingSessionId` is optional and, when supplied, must refer to shared training for that practitioner in the same organization. Title/objective/priority are required. Priorities: LOW, NORMAL, HIGH. Review date is optional and cannot be in the past. Goals have source ORGANIZATION and initial status ACTIVE. Closing active goals uses the explicit complete/cancel endpoints below; no artificial progress percentage is exposed.
 
 Athletes retrieve `/me/feedback?trainingSessionId={id}`, `/me/goals`, and `/me/goals/{id}`. Foreign athlete records return 404. Missing organization permission returns 403; even an authorized coach from another organization cannot resolve a review through their own organization path.
 
@@ -113,3 +117,32 @@ Goal review dates are checked against the current UTC date by the domain factory
 Create with `POST /organizations` and `{"name":"My dojo","martialArtCode":"JUDO"}`.
 The server assigns DIRECTOR only in the new organization. No rank or global privilege is assigned.
 See [organization onboarding](organization-onboarding.md) for invitation, permission and revocation rules.
+
+
+## Correct training before sharing
+
+`PUT /me/training-sessions/{id}` returns 200 with the updated session. Send the full editable body:
+required `version`, `occurredAt`, `durationMinutes`, `practiceType`, `techniques` and `sparring`;
+optional `organizationId`, `perceivedIntensity`, `energyLevel` and `reflection`. Arrays replace their
+previous contents; empty arrays clear entries. Omitting optional fields clears them (full replacement).
+You may choose/change/remove the dojo before sharing; any selected dojo requires active membership and
+support for the profile's discipline. Active owned profile and catalog validation still apply.
+
+ID, practitioner profile, martial art, source and creation time remain server-controlled. Unknown fields
+are rejected, including ownership/provenance/status fields. Only RECORDED sessions are editable; shared
+and reviewed history stays fixed. The server increments version. Stale version or simultaneous edit/share
+returns 409 CONCURRENT_MODIFICATION; editing a current but closed state returns 409 INVALID_STATE_TRANSITION.
+Another owner sees 404. Repeating an old creation UUID after editing may conflict with current content;
+use the update endpoint and current version rather than replaying the original creation payload.
+
+## Close goals
+
+A coach with ASSIGN_GOAL reads `GET /organizations/{org}/goals/{id}` for the latest version, then posts
+`{"version":0}` to its `/complete` or `/cancel` route. The response is the updated goal with 200,
+ACHIEVED/CANCELLED and incremented version. Only ACTIVE goals can close. Stale requests, repeat transitions
+and a competing completion/cancellation return 409; foreign organization records return 404 after the
+permission check. Athletes cannot self-complete a coach-assigned goal through their own read endpoints.
+They see the result via `/me/goals?status=ACHIEVED` or `CANCELLED` and their own goal detail.
+Closing is audited atomically. The original assignment, provenance and text are preserved. No goal reopening
+or external completion notification was added. Historical goals may be closed by an authorized coach even
+if their athlete subsequently left the dojo; closing does not reactivate membership.

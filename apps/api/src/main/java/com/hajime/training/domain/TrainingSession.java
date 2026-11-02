@@ -130,4 +130,25 @@ public final class TrainingSession {
             now,
             data.version()));
   }
+
+  public TrainingSession edit(TrainingContent content, UUID organization, Instant now) {
+    if (data.status() != Status.RECORDED)
+      throw BusinessException.conflict(
+          "INVALID_STATE_TRANSITION", "Only unshared recorded training can be edited.");
+    required(content, "Content");
+    now = now.truncatedTo(ChronoUnit.MICROS);
+    require(!content.occurredAt().isAfter(now), "Training cannot occur in the future.");
+    return new TrainingSession(
+        new Snapshot(
+            data.id(),
+            data.practitionerProfileId(),
+            data.martialArtId(),
+            organization,
+            content,
+            data.source(),
+            data.status(),
+            data.createdAt(),
+            now,
+            data.version()));
+  }
 }

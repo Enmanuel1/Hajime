@@ -36,7 +36,8 @@ public class SecurityConfiguration {
   private HttpSecurity base(
       HttpSecurity http, JwtDecoder decoder, AuthRateLimiter limits, AuthSettings settings)
       throws Exception {
-    return http.csrf(c -> c.disable())
+    return http.cors(c -> {})
+        .csrf(c -> c.disable())
         .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .exceptionHandling(
             e ->
@@ -73,7 +74,8 @@ public class SecurityConfiguration {
                         "/api/v1/auth/register",
                         "/api/v1/auth/login",
                         "/api/v1/auth/refresh",
-                        "/api/v1/auth/logout")
+                        "/api/v1/auth/logout",
+                        "/api/v1/auth/recover")
                     .permitAll()
                     .requestMatchers(
                         "/actuator/health",
@@ -102,7 +104,8 @@ public class SecurityConfiguration {
                         "/api/v1/auth/register",
                         "/api/v1/auth/login",
                         "/api/v1/auth/refresh",
-                        "/api/v1/auth/logout")
+                        "/api/v1/auth/logout",
+                        "/api/v1/auth/recover")
                     .permitAll()
                     .requestMatchers("/actuator/health")
                     .permitAll()
