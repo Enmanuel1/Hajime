@@ -1,3 +1,4 @@
 /** Organization module. Only package-root contracts are exported. */
-@org.springframework.modulith.ApplicationModule(allowedDependencies = {"shared"})
+@org.springframework.modulith.ApplicationModule(
+    allowedDependencies = {"shared", "identity", "martialart"})
 package com.hajime.organization;

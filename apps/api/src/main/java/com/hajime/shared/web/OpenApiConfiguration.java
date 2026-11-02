@@ -40,7 +40,10 @@ public class OpenApiConfiguration {
                   .in(SecurityScheme.In.HEADER)
                   .name("X-Dev-User")
                   .description("Development only: athlete (default), sensei, outsider."));
-      api.setSecurity(java.util.List.of(new SecurityRequirement().addList("devUser")));
+      api.setSecurity(
+          java.util.List.of(
+              new SecurityRequirement().addList("devUser"),
+              new SecurityRequirement().addList("bearerAuth")));
     };
   }
 }

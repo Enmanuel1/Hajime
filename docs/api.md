@@ -1,12 +1,19 @@
 # REST API v1
 
-Base path: `/api/v1`. JSON request/response DTOs; UUID identifiers; ISO-8601 timestamps with UTC offsets; dates are `YYYY-MM-DD`. OpenAPI is at `/v3/api-docs`, Swagger at `/swagger-ui.html` in development. POST create operations return 201; sharing returns 200. Development identity header: `X-Dev-User: athlete|sensei|outsider`; omitted means athlete. No such header authenticates outside dev/test. Production expects provisioned JWT subjects.
+Base path: `/api/v1`. JSON request/response DTOs; UUID identifiers; ISO-8601 timestamps with UTC offsets; dates are `YYYY-MM-DD`. OpenAPI is at `/v3/api-docs`, Swagger at `/swagger-ui.html` in development. POST create operations return 201; sharing returns 200. Development identity header: `X-Dev-User: athlete|sensei|outsider`; omitted means athlete. No such header authenticates outside dev/test. Local registration/login/refresh/logout and profile onboarding are documented in [local authentication](local-authentication.md). Explicit Bearer tokens use real authentication even in dev.
 
 ## Endpoints
 
 | Method | Path (relative to /api/v1) | Scope |
 | --- | --- | --- |
 | GET | /me | Current identity |
+| POST | /organizations | Create dojo; creator becomes DIRECTOR of that dojo |
+| GET | /me/organizations | Own active organizations, paginated |
+| GET | /organizations/{org}/members | VIEW_STUDENTS; active memberships, paginated |
+| POST | /organizations/{org}/invitations | MANAGE_MEMBERS; recipient-bound invitation |
+| GET | /me/organization-invitations | Own unexpired pending invitations, paginated |
+| POST | /me/organization-invitations/{id}/accept | Recipient only; consumes invitation, returns 204 |
+| DELETE | /organizations/{org}/members/{id} | MANAGE_MEMBERS; deactivate one membership, returns 204 |
 | GET | /me/practitioner-profiles | Own discipline profiles |
 | POST | /me/training-sessions | Record personal training |
 | GET | /me/training-sessions | Own paginated history |
@@ -39,7 +46,7 @@ curl -H 'X-Dev-User: sensei' \
   http://localhost:8080/api/v1/organizations/30000000-0000-0000-0000-000000000001/training-reviews
 ```
 
-The example's fixed ID is for readability. A second create with that ID returns 409; clients should generate a fresh UUID for new personal records and reconcile retries. `id` may be omitted for a server-generated UUID. `organizationId`, perceived intensity, energy, and reflection may be omitted/null. `techniques` and `sparring` must be present; use empty arrays when absent. Sharing requires an organization to have been selected when recording. Only recorded sessions can be shared; resubmitting an outdated version returns 409.
+The example's fixed ID is for readability. Repeating the same ID/content returns the current session with 201; different content returns 409 TRAINING_ID_CONFLICT. Generate a new UUID for a new personal record. `id` may be omitted for a server-generated UUID. `organizationId`, perceived intensity, energy, and reflection may be omitted/null. `techniques` and `sparring` must be present; use empty arrays when absent. Sharing requires an organization to have been selected when recording. Only recorded sessions can be shared; resubmitting an outdated version returns 409.
 
 Duration: 1–720 minutes; intensity: 1–10; energy: 1–5. Reflection maximum 4,000 characters. At most 100 technique and 100 sparring entries; duplicate technique IDs are rejected. Practice types: TECHNICAL, SPARRING, CONDITIONING, MIXED. Technique IDs must be active and belong to the profile's martial art. Future dates are rejected. The request cannot set source, owner, or state.
 
@@ -99,3 +106,10 @@ Inactive profiles retain access to their history but cannot share. Optimistic-lo
 use `CONCURRENT_MODIFICATION`; other storage integrity conflicts use `DATA_CONFLICT`.
 
 Goal review dates are checked against the current UTC date by the domain factory, including non-HTTP callers.
+
+
+## Dojo onboarding with real accounts
+
+Create with `POST /organizations` and `{"name":"My dojo","martialArtCode":"JUDO"}`.
+The server assigns DIRECTOR only in the new organization. No rank or global privilege is assigned.
+See [organization onboarding](organization-onboarding.md) for invitation, permission and revocation rules.

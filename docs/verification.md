@@ -51,9 +51,9 @@ correction does not rerun Maven or start services.
 
 Spring Framework 7 requires JUnit Jupiter 6+. Boot's managed Jupiter 6.0.3 is used instead of the requested JUnit 5. See [ADR-007](adr/ADR-007-compatible-test-platform.md).
 
-## Scope limits
+## Historical scope limits (initial baseline)
 
-No mobile application, live Cognito tenant/provisioning integration, external notification provider, media adapter, attendance workflow, grading workflow, or competition workflow was built. Their boundaries/documentation are present as requested. Goal lifecycle/evidence and offline sync remain future work. No Redis, Kafka, microservices, or local password authentication is present.
+No mobile application, live Cognito tenant/provisioning integration, external notification provider, media adapter, attendance workflow, grading workflow, or competition workflow was built. Their boundaries/documentation are present as requested. Goal lifecycle/evidence and offline sync remain future work. At that checkpoint no local password authentication was present; the later local-authentication section supersedes this limitation. Redis, Kafka and microservices remain absent.
 
 
 ## Domain hardening and clean-code refactor (2026-11-01)
@@ -69,7 +69,7 @@ of verify. See the delivery report for the final execution result.
 The source changes do not migrate the developer's running database. V8 will be applied by Flyway
 on the next configured application startup; existing inconsistent rows cause an explicit migration
 failure. Historical migrations are unchanged. JWT verification uses local signing keys in tests;
-live Cognito provisioning/pool verification and external notification delivery remain deferred.
+live Cognito provisioning was not tested at that checkpoint. ADR-012 later replaces that provider with local authentication; external notification delivery remains deferred.
 
 
 ## Business errors and leased outbox (2026-11-01)
@@ -88,3 +88,39 @@ container so events from the vertical-slice tests cannot contaminate queue claim
 V9 was applied only in temporary test databases. Existing development data was not migrated. No cloud
 service, external notification provider, authentication flow or workflow was added, and no commit was made.
 See `outbox-operations.md` for configuration, dead-letter recovery and retention.
+
+
+## Local authentication and practitioner onboarding
+
+`clean verify` passed with Temurin 21: **60 tests, zero failures/errors/skips**, packaging, Spotless and
+module/transport-boundary checks. The suite includes own JWT signature/issuer/audience/type/time/session
+checks outside dev, registration races/rollback, email normalization, password/refresh hashing, session
+rotation/replay revocation, parallel refresh, logout, disabled/expired sessions, rate limiting, own profile
+creation/uniqueness/ownership, forbidden role/rank input, and expired session cleanup.
+
+A separately packaged dev API and disposable PostgreSQL database were used for real Postman CLI runs:
+24 requests / 48 assertions for real accounts/JWT/profiles, then 65 requests / 152 assertions for the
+legacy vertical slice. Both exited 0 with no failures. Temporary resources were stopped afterward.
+V10 was not applied to the user's existing development database, confirmed still at schema 9.
+
+The editor's incremental compilation initially left unresolved bytecode in target/classes; clean Maven
+compilation resolved it. The final reported checks are from the clean successful run. No runtime
+dependency, cloud service or workflow was added. Changes are uncommitted for user review.
+
+
+## Organization onboarding (2026-11-02)
+
+Clean Maven verification in an isolated source copy with Temurin 21 and temporary PostgreSQL passed:
+**66 tests, zero failures/errors/skips**, executable packaging, Spotless, Modulith and transport boundaries.
+Six new real-JWT HTTP integration cases cover membership onboarding into training/coaching, organization
+isolation, privilege limits, invitation ownership/expiry/replacement, role revocation, parallel acceptance,
+and simultaneous acceptance/deactivation. The initial run exposed an Instant JDBC binding bug in the
+new repository; explicit SQL timestamps fixed it and the final clean suite passed.
+
+The developer's database was not migrated. V11 will run on the next configured backend startup.
+No new cloud service, dependency, workflow or commit was added.
+
+Live Postman CLI: **24 requests / 27 assertions, zero failures, exit 0**, against the packaged backend
+without development identities and a fresh disposable PostgreSQL. The temporary API/database were
+stopped after the run. This verifies the new collection against real service behavior; it is not a mock
+or a test against the developer's existing database. Results were kept local.

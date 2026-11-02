@@ -1,0 +1,828 @@
+{
+  "info": {
+    "name": "HAJIME · Cuentas reales y JWT",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Ejecutar en orden con HAJIME Local seleccionado. Usa JWT real incluso en dev; no usa X-Dev-User. Genera una cuenta de prueba y guarda los tokens en los valores locales del environment. No compartir/sincronizar contraseñas ni refresh tokens reales. Registro no concede membresías ni permisos de coach. Termina con una sesión válida para seguir probando."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    }
+  ],
+  "item": [
+    {
+      "name": "Registro → perfil → entrenamiento → renovación → logout",
+      "item": [
+        {
+          "name": "01 · Crear cuenta nueva",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/register",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{authEmail}}\",\n  \"password\": \"{{authPassword}}\",\n  \"displayName\": \"Atleta de prueba JWT\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set(\"authEmail\",\"athlete-\"+pm.variables.replaceIn(\"{{$guid}}\")+\"@example.test\");",
+                  "pm.environment.set(\"authPassword\",\"HAJIME-local-\"+pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "pm.environment.unset(\"authProfileId\");",
+                  "pm.environment.unset(\"authTrainingId\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\",()=>pm.response.to.have.status(201));",
+                  "if(pm.response.code<300) {",
+                  " const b=pm.response.json();",
+                  " pm.environment.set(\"token\",b.accessToken);",
+                  " pm.environment.set(\"refreshToken\",b.refreshToken);",
+                  " pm.environment.set(\"authUserId\",b.user.id);",
+                  " pm.test(\"Respuesta de sesión\",()=>{pm.expect(b.tokenType).to.eql(\"Bearer\");pm.expect(b.expiresIn).to.be.above(0);});",
+                  " pm.test(\"No cache\",()=>pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "02 · Consultar mi identidad con JWT",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/me"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+                  "pm.test(\"Cuenta real propia\",()=>pm.expect(pm.response.json().id).to.eql(pm.environment.get(\"authUserId\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03 · Cuenta duplicada",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/register",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{authEmail}}\",\n  \"password\": \"{{authPassword}}\",\n  \"displayName\": \"Duplicado\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 409\",()=>pm.response.to.have.status(409));",
+                  "pm.test(\"ACCOUNT_UNAVAILABLE\",()=>pm.expect(pm.response.json().code).to.eql(\"ACCOUNT_UNAVAILABLE\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "04 · Login con contraseña incorrecta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{authEmail}}\",\n  \"password\": \"Incorrect long test passphrase\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\",()=>pm.response.to.have.status(401));",
+                  "pm.test(\"INVALID_CREDENTIALS\",()=>pm.expect(pm.response.json().code).to.eql(\"INVALID_CREDENTIALS\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "05 · Login válido",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{authEmail}}\",\n  \"password\": \"{{authPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+                  "if(pm.response.code<300) {",
+                  " const b=pm.response.json();",
+                  " pm.environment.set(\"token\",b.accessToken);",
+                  " pm.environment.set(\"refreshToken\",b.refreshToken);",
+                  " pm.environment.set(\"authUserId\",b.user.id);",
+                  " pm.test(\"Respuesta de sesión\",()=>{pm.expect(b.tokenType).to.eql(\"Bearer\");pm.expect(b.expiresIn).to.be.above(0);});",
+                  " pm.test(\"No cache\",()=>pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "06 · Ver perfiles — inicialmente vacío",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/me/practitioner-profiles"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+                  "pm.test(\"Sin perfiles iniciales\",()=>pm.expect(pm.response.json()).to.have.length(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "07 · Crear mi perfil de Judo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/me/practitioner-profiles",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"martialArtCode\": \"JUDO\",\n  \"weightKg\": 80.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\",()=>pm.response.to.have.status(201));",
+                  "if(pm.response.code===201){const p=pm.response.json();pm.environment.set(\"authProfileId\",p.id);",
+                  "pm.test(\"Propietario correcto y grado no autoasignado\",()=>{pm.expect(p.userId).to.eql(pm.environment.get(\"authUserId\"));pm.expect(p.currentRankId).to.eql(null);pm.expect(p.status).to.eql(\"ACTIVE\");});}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "08 · Leer mi perfil creado",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/me/practitioner-profiles/{{authProfileId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "09 · Rechazar perfil duplicado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/me/practitioner-profiles",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"martialArtCode\": \"JUDO\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 409\",()=>pm.response.to.have.status(409));",
+                  "pm.test(\"PROFILE_ALREADY_EXISTS\",()=>pm.expect(pm.response.json().code).to.eql(\"PROFILE_ALREADY_EXISTS\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10 · No puedo asignarme un grado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/me/practitioner-profiles",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"martialArtCode\": \"JUDO\",\n  \"currentRankId\": \"12000000-0000-0000-0000-000000000007\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\",()=>pm.response.to.have.status(400));",
+                  "pm.test(\"INVALID_REQUEST\",()=>pm.expect(pm.response.json().code).to.eql(\"INVALID_REQUEST\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11 · Registrar entrenamiento personal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/me/training-sessions",
+            "body": {
+              "mode": "raw",
+              "raw": "{{authTrainingBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"authTrainingBody\",JSON.stringify({id:pm.variables.replaceIn(\"{{$guid}}\"),practitionerProfileId:pm.environment.get(\"authProfileId\"),occurredAt:new Date(Date.now()-3600000).toISOString(),durationMinutes:60,practiceType:\"TECHNICAL\",reflection:\"Entrenamiento con mi cuenta real.\",techniques:[],sparring:[]}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\",()=>pm.response.to.have.status(201));",
+                  "if(pm.response.code===201){pm.environment.set(\"authTrainingId\",pm.response.json().id);pm.test(\"PERSONAL\",()=>pm.expect(pm.response.json().source).to.eql(\"PERSONAL\"));}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12 · Leer mi entrenamiento",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/me/training-sessions/{{authTrainingId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13 · Registro no me hace sensei",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/organizations/30000000-0000-0000-0000-000000000001/practitioners/{{authProfileId}}/goals",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Sin permiso\",\n  \"objective\": \"No debe guardarse\",\n  \"priority\": \"NORMAL\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\",()=>pm.response.to.have.status(403));",
+                  "pm.test(\"ACCESS_DENIED\",()=>pm.expect(pm.response.json().code).to.eql(\"ACCESS_DENIED\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "14 · Renovar sesión y reemplazar tokens",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/refresh",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set(\"authOldRefresh\",pm.environment.get(\"refreshToken\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+                  "if(pm.response.code<300) {",
+                  " const b=pm.response.json();",
+                  " pm.environment.set(\"token\",b.accessToken);",
+                  " pm.environment.set(\"refreshToken\",b.refreshToken);",
+                  " pm.environment.set(\"authUserId\",b.user.id);",
+                  " pm.test(\"Respuesta de sesión\",()=>{pm.expect(b.tokenType).to.eql(\"Bearer\");pm.expect(b.expiresIn).to.be.above(0);});",
+                  " pm.test(\"No cache\",()=>pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "15 · Mi identidad con el token nuevo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/me"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16 · Reutilizar refresh viejo revoca esa sesión",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/refresh",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{authOldRefresh}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\",()=>pm.response.to.have.status(401));",
+                  "pm.test(\"INVALID_REFRESH_TOKEN\",()=>pm.expect(pm.response.json().code).to.eql(\"INVALID_REFRESH_TOKEN\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "17 · El acceso de la sesión revocada falla",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/me"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\",()=>pm.response.to.have.status(401));",
+                  "pm.test(\"UNAUTHENTICATED\",()=>pm.expect(pm.response.json().code).to.eql(\"UNAUTHENTICATED\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "18 · Login abre otra sesión válida",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{authEmail}}\",\n  \"password\": \"{{authPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+                  "if(pm.response.code<300) {",
+                  " const b=pm.response.json();",
+                  " pm.environment.set(\"token\",b.accessToken);",
+                  " pm.environment.set(\"refreshToken\",b.refreshToken);",
+                  " pm.environment.set(\"authUserId\",b.user.id);",
+                  " pm.test(\"Respuesta de sesión\",()=>{pm.expect(b.tokenType).to.eql(\"Bearer\");pm.expect(b.expiresIn).to.be.above(0);});",
+                  " pm.test(\"No cache\",()=>pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "19 · Logout de esta sesión",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/logout",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\",()=>pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "20 · Access rechazado tras logout",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/me"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\",()=>pm.response.to.have.status(401));",
+                  "pm.test(\"UNAUTHENTICATED\",()=>pm.expect(pm.response.json().code).to.eql(\"UNAUTHENTICATED\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "21 · Refresh rechazado tras logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/refresh",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\",()=>pm.response.to.have.status(401));",
+                  "pm.test(\"INVALID_REFRESH_TOKEN\",()=>pm.expect(pm.response.json().code).to.eql(\"INVALID_REFRESH_TOKEN\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "22 · Logout repetido es seguro",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/logout",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\",()=>pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "23 · Volver a entrar para seguir probando",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{authEmail}}\",\n  \"password\": \"{{authPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+                  "if(pm.response.code<300) {",
+                  " const b=pm.response.json();",
+                  " pm.environment.set(\"token\",b.accessToken);",
+                  " pm.environment.set(\"refreshToken\",b.refreshToken);",
+                  " pm.environment.set(\"authUserId\",b.user.id);",
+                  " pm.test(\"Respuesta de sesión\",()=>{pm.expect(b.tokenType).to.eql(\"Bearer\");pm.expect(b.expiresIn).to.be.above(0);});",
+                  " pm.test(\"No cache\",()=>pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "24 · Mis perfiles siguen existiendo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/me/practitioner-profiles"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+                  "pm.test(\"Un perfil\",()=>pm.expect(pm.response.json()).to.have.length(1));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

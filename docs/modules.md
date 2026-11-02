@@ -4,10 +4,10 @@ Only types at `com.hajime.<module>` are exported. Subpackages are internal. Ever
 
 | Module | Public contracts | Data ownership / maturity |
 | --- | --- | --- |
-| identity | CurrentUser, UserDirectory | External identities; dev/test and resource-server boundary |
+| identity | CurrentUser, UserDirectory | Local accounts, JWT sessions, rotated refresh tokens, rate limits; separate dev identity adapter |
 | organization | Organization, OrganizationMembership, OrganizationMartialArt, OrganizationAccess, Permission, MembershipRole | Organizations and membership queries; administrative writes deferred |
 | martialart | Catalog, MartialArtCode, RankSystem, TechniqueCategory, MartialArtPolicy and cohesive policies/registry | Catalog and Judo configuration/behavior |
-| practitioner | Practitioners/Profile | Profile ownership and rank/weight; creation deferred |
+| practitioner | Practitioners/Profile | Own profile creation/detail, ownership and weight; official rank assignment deferred |
 | curriculum | Curriculum, CurriculumRequirement | Schema and versioned public concepts; authoring deferred |
 | training | TrainingView, TrainingAccess, TrainingSessionShared, TrainingReviewed | Aggregate, repository port/JPA adapter, athlete endpoints |
 | coaching | FeedbackCreated, GoalAssigned | Reviews/feedback/goals, explicit SQL port/adapter |

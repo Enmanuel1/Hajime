@@ -38,19 +38,35 @@ There is no asynchronous cross-module work on the critical path, so rollback rem
 
 ## Authentication and authorization
 
-`CurrentUser` isolates application code from Spring Security/Cognito. `dev`/`test` SecurityFilterChain builds a local adapter with three fixed aliases. No adapter bean is globally registered. Any other profile has a stateless protected filter chain; a dev header cannot authenticate there (tested). Error responses use ProblemDetail, including authentication failures.
+`CurrentUser` isolates application code from Spring Security and JWT validation. `dev`/`test` SecurityFilterChain builds a local adapter with three fixed aliases. No adapter bean is globally registered. Any other profile has a stateless protected filter chain; a dev header cannot authenticate there (tested). Error responses use ProblemDetail, including authentication failures.
 
-Production resource-server support targets Cognito access tokens. Configure both
-`spring.security.oauth2.resourceserver.jwt.issuer-uri` (`SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI`)
-and `hajime.security.jwt.client-id` (`HAJIME_SECURITY_JWT_CLIENT_ID`). The issuer-configured decoder verifies
-signature, time and issuer; an additional policy requires `token_use=access`, the configured `client_id`,
-a nonblank subject and an expiration. ID tokens are rejected. Enabling a decoder without a client ID
-fails startup. Other OIDC providers require a deliberate token-policy adapter; arbitrary JWTs are not
-accepted just because they use the same issuer. A valid subject must map to a provisioned `app_user.subject`.
-Provisioning and live Cognito pool integration remain deployment work. Without a decoder, protected endpoints
-return 401. Combining `prod` or `production` with `dev`/`test` fails startup. Deployment configuration must
-still use the correct profiles. No form login, Basic authentication, session, or local password database exists.
-TLS/ingress configuration remains a deployment responsibility.
+Authentication is local and needs no cloud provider. `POST /api/v1/auth/register` creates a local account;
+`login` verifies PBKDF2-HMAC-SHA256 hashes (600,000 iterations, random salt, versioned encoding).
+Access tokens are HS256 JWTs with issuer, audience, expiration, subject and session ID. Outside dev/test,
+`HAJIME_JWT_SECRET` must supply at least 32 random bytes encoded as Base64; no key is hardcoded.
+Dev/test can use an ephemeral random key, invalidating previous access JWTs on restart.
+The decoder verifies signature/standard claims and the active database session, so logout, account
+disabling and replay revocation reject access immediately. Subject resolution still uses `CurrentUser`.
+
+Refresh tokens contain 32 random bytes and are stored only as SHA-256 digests. Refresh locks its session,
+consumes the old token and issues a replacement atomically. Reusing a consumed token revokes that session
+family; the revocation commits even though the caller receives 401. Other sessions remain independent.
+Clients must serialize refresh requests. Sessions have an absolute 30-day lifetime; access tokens default
+to 15 minutes and cannot outlive that session. Bounded hourly cleanup deletes families expired more than
+a day ago and cascades refresh history. Live families retain consumed hashes for replay detection.
+
+PostgreSQL rate limits bound auth requests by direct peer address and login attempts by normalized account,
+without Redis. Defaults are 100/IP and 10/account per 15 minutes, counting attempts irrespective of success.
+Proxy deployments need deliberate trusted-forwarding/ingress configuration; arbitrary X-Forwarded-For is
+not trusted. Auth responses disable caching. There is no password recovery, email verification or MFA yet.
+Open registration grants no dojo membership, coach role or official rank. These endpoints are suitable
+for the current pilot scope, not a claim that public signup lifecycle/operations are finished.
+
+In dev/test the existing fixed-alias adapter remains available for the legacy walkthrough. Explicit
+Authorization always uses JWT and never falls back to a dev identity; auth endpoints skip impersonation.
+Combining prod/production with dev/test fails startup. Production ignores X-Dev-User. No form login,
+Basic authentication or HTTP session is enabled. TLS/ingress and mobile secure token storage are deployment
+and client responsibilities. See [local authentication](local-authentication.md) and ADR-012.
 
 Roles and permission sets are intentionally small and static. Membership scope, not a JWT global role, decides dojo permissions. Revoking a membership immediately affects new use cases because the database is consulted each time. No dynamic authorization engine is needed.
 

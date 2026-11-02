@@ -25,3 +25,6 @@ management:
   endpoint:
     health:
       show-details: never
+hajime:
+  auth:
+    secret: ${HAJIME_JWT_SECRET:}

@@ -2,7 +2,7 @@
 
 | Owner | Tables / concepts | Invariants |
 | --- | --- | --- |
-| identity | app_user | External subject is unique; no passwords |
+| identity | app_user, local_credential, auth_session, refresh_token, auth_rate_limit | Unique normalized email, hashed credentials, rotated refresh digests, session revocation |
 | organization | organization, organization_martial_art, organization_membership | Roles are scoped to org/user; organization supports many arts |
 | martialart | martial_art, rank_system, rank, technique_category, technique | Catalog codes unique in scope; rank order comes from data |
 | curriculum | curriculum, curriculum_requirement | Versioned requirements, optional org override, optional technique |
@@ -38,7 +38,7 @@ Practice types are TECHNICAL, SPARRING, CONDITIONING, MIXED. Duration is 1–720
 
 Goal holds practitioner, organization, martial art, assigning coach, optional source session and technique, title, objective, observation, priority, review date, timestamps, status, provenance, and version. Statuses are ACTIVE, ACHIEVED, CANCELLED; priorities LOW, NORMAL, HIGH. This release creates and reads goals only. Future lifecycle/evidence APIs must use real related training evidence, never inferred completion percentages.
 
-RecordSource is PERSONAL, ORGANIZATION, OFFICIAL. Provenance describes who entered/validated a record, not its current visibility. A reviewed personal journal remains PERSONAL; the coach's goal is ORGANIZATION. Future conflict resolution must honor source authority. IDs are UUIDs, and personal training accepts a client-generated ID to support future offline work; duplicate IDs return conflict rather than overwrite an existing record.
+RecordSource is PERSONAL, ORGANIZATION, OFFICIAL. Provenance describes who entered/validated a record, not its current visibility. A reviewed personal journal remains PERSONAL; the coach's goal is ORGANIZATION. Future conflict resolution must honor source authority. IDs are UUIDs, and personal training accepts a client-generated ID to support future offline work; repeating the same owner/content/ID recovers the existing record; changed content conflicts rather than overwriting.
 
 Prototype Judo ranks are 6th Kyu/White through 1st Kyu/Brown, then 1st Dan/Black. These values describe the prototype adult rank system, not every federation, country, or age group. Curricula and competition policy are explicitly provisional. Store future authoritative versions as data/configuration and cohesive policy variants.
 

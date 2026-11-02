@@ -49,4 +49,10 @@ public class AuditEvents {
         e.goalId(),
         Map.of("practitionerProfileId", e.practitionerProfileId().toString()));
   }
+
+  @EventListener
+  public void organization(com.hajime.organization.OrganizationChanged e) {
+    audit.record(
+        e.actorUserId(), e.organizationId(), e.action(), e.entityType(), e.entityId(), Map.of());
+  }
 }

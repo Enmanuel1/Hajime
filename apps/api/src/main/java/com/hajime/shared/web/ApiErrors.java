@@ -22,6 +22,7 @@ public class ApiErrors {
           case NOT_FOUND -> 404;
           case CONFLICT -> 409;
           case UNSUPPORTED -> 422;
+          case RATE_LIMITED -> 429;
         };
     return problem(status, e.code(), e.getMessage());
   }

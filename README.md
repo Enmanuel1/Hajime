@@ -259,9 +259,9 @@ hajime/
 
 Authentication identity and current-user context.
 
-HAJIME does not store user passwords.
+HAJIME supports local accounts and stores only versioned salted password hashes.
 
-Production authentication is expected to use OIDC, initially AWS Cognito.
+Authentication uses locally issued JWT access tokens and rotating refresh tokens, without a cloud provider. See [local authentication](docs/local-authentication.md).
 
 ---
 
@@ -754,11 +754,11 @@ It should be introduced to solve a measured problem, not to make an architecture
 
 # Security
 
-Production authentication will use OIDC.
+Authentication uses local accounts, JWT access tokens and rotating refresh tokens.
 
-The initial target is AWS Cognito.
+Set `HAJIME_JWT_SECRET` outside dev/test. Logout and session revocation are checked by the resource server.
 
-The backend will operate as a secured resource server.
+The development aliases remain available only for dev/test walkthroughs.
 
 Organization permissions are membership-scoped rather than global.
 
@@ -972,3 +972,7 @@ The goal is not to create the most impressive architecture diagram.
 The goal is to ship a martial arts platform that can grow without becoming impossible to maintain.
 
 **始め — Begin.**
+
+### Real dojo onboarding
+
+Real accounts can now create a dojo, invite existing accounts, accept invitations and use coaching without development memberships. See [organization onboarding](docs/organization-onboarding.md). Runnable collection: `postman/collections/HAJIME-organizations.postman_collection.json`. Migration V11 is applied on the next application startup.

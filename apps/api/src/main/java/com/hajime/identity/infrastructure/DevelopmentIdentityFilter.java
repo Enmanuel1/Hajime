@@ -14,6 +14,11 @@ final class DevelopmentIdentityFilter extends OncePerRequestFilter {
   protected void doFilterInternal(
       HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException {
+    if (request.getHeader("Authorization") != null
+        || request.getRequestURI().startsWith("/api/v1/auth/")) {
+      chain.doFilter(request, response);
+      return;
+    }
     String alias = request.getHeader("X-Dev-User");
     if (alias == null) alias = "athlete";
     if (!List.of("athlete", "sensei", "outsider").contains(alias)) {

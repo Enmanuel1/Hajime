@@ -8,7 +8,8 @@ public final class BusinessException extends RuntimeException {
     FORBIDDEN,
     NOT_FOUND,
     CONFLICT,
-    UNSUPPORTED
+    UNSUPPORTED,
+    RATE_LIMITED
   }
 
   private final Kind kind;
@@ -50,6 +51,10 @@ public final class BusinessException extends RuntimeException {
 
   public static BusinessException unsupported(String code, String message) {
     return new BusinessException(Kind.UNSUPPORTED, code, message);
+  }
+
+  public static BusinessException rateLimited(String code, String message) {
+    return new BusinessException(Kind.RATE_LIMITED, code, message);
   }
 
   public static BusinessException denied() {
