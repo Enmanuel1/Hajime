@@ -1,0 +1,2 @@
+CREATE TABLE practitioner_profile(id uuid PRIMARY KEY, user_id uuid NOT NULL REFERENCES app_user, martial_art_id uuid NOT NULL REFERENCES martial_art, current_rank_id uuid REFERENCES rank, weight_kg numeric(5,2) CHECK(weight_kg>0), status varchar(20) NOT NULL CHECK(status IN ('ACTIVE','INACTIVE')), created_at timestamptz NOT NULL DEFAULT now(), UNIQUE(user_id,martial_art_id));
+CREATE INDEX practitioner_owner ON practitioner_profile(user_id);

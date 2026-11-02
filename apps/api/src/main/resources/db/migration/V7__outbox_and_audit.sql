@@ -1,0 +1,4 @@
+CREATE TABLE audit_log(id uuid PRIMARY KEY, actor_user_id uuid NOT NULL REFERENCES app_user, organization_id uuid REFERENCES organization, action varchar(60) NOT NULL, entity_type varchar(60) NOT NULL, entity_id uuid NOT NULL, metadata jsonb NOT NULL DEFAULT '{}', created_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX audit_org ON audit_log(organization_id,created_at DESC);
+CREATE TABLE outbox_event(id uuid PRIMARY KEY, event_type varchar(60) NOT NULL, aggregate_id uuid NOT NULL, organization_id uuid REFERENCES organization, payload jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), processed_at timestamptz, attempts integer NOT NULL DEFAULT 0 CHECK(attempts>=0), next_attempt_at timestamptz NOT NULL DEFAULT now(), last_error varchar(200));
+CREATE INDEX outbox_pending ON outbox_event(next_attempt_at,created_at,id) WHERE processed_at IS NULL;

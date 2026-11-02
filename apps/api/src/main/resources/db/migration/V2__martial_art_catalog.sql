@@ -1,0 +1,8 @@
+CREATE TABLE martial_art(id uuid PRIMARY KEY, code varchar(30) UNIQUE NOT NULL, name varchar(100) NOT NULL, active boolean NOT NULL DEFAULT true);
+CREATE TABLE rank_system(id uuid PRIMARY KEY, martial_art_id uuid NOT NULL REFERENCES martial_art, name varchar(120) NOT NULL);
+CREATE TABLE rank(id uuid PRIMARY KEY, rank_system_id uuid NOT NULL REFERENCES rank_system, code varchar(30) NOT NULL, display_name varchar(100) NOT NULL, order_index integer NOT NULL, belt_color varchar(30) NOT NULL, metadata jsonb NOT NULL DEFAULT '{}', UNIQUE(rank_system_id,code), UNIQUE(rank_system_id,order_index));
+CREATE TABLE technique_category(id uuid PRIMARY KEY, martial_art_id uuid NOT NULL REFERENCES martial_art, code varchar(40) NOT NULL, name varchar(100) NOT NULL, order_index integer NOT NULL, UNIQUE(martial_art_id,code));
+CREATE TABLE technique(id uuid PRIMARY KEY, martial_art_id uuid NOT NULL REFERENCES martial_art, category_id uuid NOT NULL REFERENCES technique_category, code varchar(60) NOT NULL, name varchar(120) NOT NULL, native_name varchar(120), description text NOT NULL, active boolean NOT NULL DEFAULT true, UNIQUE(martial_art_id,code));
+CREATE INDEX technique_art ON technique(martial_art_id);
+CREATE TABLE curriculum(id uuid PRIMARY KEY, martial_art_id uuid NOT NULL REFERENCES martial_art, organization_id uuid, name varchar(150) NOT NULL, version integer NOT NULL CHECK(version>0), active boolean NOT NULL DEFAULT true);
+CREATE TABLE curriculum_requirement(id uuid PRIMARY KEY, curriculum_id uuid NOT NULL REFERENCES curriculum, rank_id uuid NOT NULL REFERENCES rank, technique_id uuid REFERENCES technique, criterion_code varchar(60) NOT NULL, name varchar(150) NOT NULL, description text NOT NULL, required boolean NOT NULL);

@@ -1,0 +1,15 @@
+FROM maven:3.9.12-eclipse-temurin-21 AS build
+WORKDIR /workspace
+COPY pom.xml .
+COPY apps/api/pom.xml apps/api/pom.xml
+RUN mvn -B -ntp -pl apps/api -am dependency:go-offline
+COPY apps/api/src apps/api/src
+RUN mvn -B -ntp -pl apps/api -am package -DskipTests
+
+FROM eclipse-temurin:21-jre-jammy
+RUN groupadd --system hajime && useradd --system --gid hajime --home-dir /app hajime
+WORKDIR /app
+COPY --from=build --chown=hajime:hajime /workspace/apps/api/target/hajime-api-0.1.0-SNAPSHOT.jar app.jar
+USER hajime
+EXPOSE 8080
+ENTRYPOINT ["java","-jar","app.jar"]

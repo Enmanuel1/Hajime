@@ -1,0 +1,11 @@
+spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/dev
+logging:
+  level:
+    root: WARN
+    org.springframework: WARN
+hajime:
+  outbox:
+    local-enabled: true
+    initial-delay-ms: 3600000

@@ -1,0 +1,8 @@
+spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/dev
+server:
+  address: 127.0.0.1
+hajime:
+  outbox:
+    local-enabled: true

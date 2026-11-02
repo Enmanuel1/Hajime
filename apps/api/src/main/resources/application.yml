@@ -1,0 +1,27 @@
+debug: false
+spring:
+  application:
+    name: hajime
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/hajime}
+    username: ${DATABASE_USER:hajime}
+    password: ${DATABASE_PASSWORD:hajime_local}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    locations: classpath:db/migration
+  web:
+    error:
+      include-message: never
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
