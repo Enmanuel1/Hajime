@@ -1,6 +1,6 @@
 package com.hajime.training.infrastructure.persistence;
 
-import com.hajime.shared.ApiException;
+import com.hajime.shared.BusinessException;
 import com.hajime.shared.PageResult;
 import com.hajime.training.domain.*;
 import java.util.*;
@@ -32,8 +32,8 @@ public class JpaTrainingRepository implements TrainingRepository {
     var existing = repository.findById(id).map(TrainingJpaEntity::domain);
     if (existing.isPresent()) {
       if (!existing.get().sameRecording(session))
-        throw new ApiException(
-            409, "TRAINING_ID_CONFLICT", "Training ID conflicts with an existing recording.");
+        throw BusinessException.conflict(
+            "TRAINING_ID_CONFLICT", "Training ID conflicts with an existing recording.");
       return existing.get();
     }
     return save(session);

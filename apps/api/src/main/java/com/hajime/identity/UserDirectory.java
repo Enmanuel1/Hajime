@@ -1,7 +1,7 @@
 package com.hajime.identity;
 
 import com.hajime.identity.infrastructure.UserRepository;
-import com.hajime.shared.ApiException;
+import com.hajime.shared.BusinessException;
 import java.util.*;
 import org.springframework.stereotype.Service;
 
@@ -20,7 +20,7 @@ public class UserDirectory {
         .bySubject(subject)
         .orElseThrow(
             () ->
-                new ApiException(
-                    401, "UNAUTHENTICATED", "Authenticated identity has not been provisioned."));
+                BusinessException.unauthenticated(
+                    "UNAUTHENTICATED", "Authenticated identity has not been provisioned."));
   }
 }

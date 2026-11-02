@@ -35,11 +35,13 @@ public class Catalog {
   public Art art(String code) {
     return repository
         .art(new MartialArtCode(code).value())
-        .orElseThrow(() -> ApiException.missing("MARTIAL_ART_NOT_SUPPORTED"));
+        .orElseThrow(() -> BusinessException.missing("MARTIAL_ART_NOT_SUPPORTED"));
   }
 
   public Art art(UUID id) {
-    return repository.art(id).orElseThrow(() -> ApiException.missing("MARTIAL_ART_NOT_SUPPORTED"));
+    return repository
+        .art(id)
+        .orElseThrow(() -> BusinessException.missing("MARTIAL_ART_NOT_SUPPORTED"));
   }
 
   public List<Rank> ranks(String code) {
@@ -55,8 +57,7 @@ public class Catalog {
     if (techniqueIds.isEmpty()) return;
     var ids = Set.copyOf(techniqueIds);
     if (repository.activeTechniqueCount(artId, ids) != ids.size())
-      throw new ApiException(
-          400,
+      throw BusinessException.invalid(
           "TECHNIQUE_MISMATCH",
           "Techniques must be active and belong to the selected martial art.");
   }

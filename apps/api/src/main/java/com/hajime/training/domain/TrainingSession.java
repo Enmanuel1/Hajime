@@ -99,11 +99,10 @@ public final class TrainingSession {
 
   public TrainingSession share(Instant now) {
     if (data.status() != Status.RECORDED)
-      throw new ApiException(
-          409, "INVALID_STATE_TRANSITION", "Only recorded training can be shared.");
+      throw BusinessException.conflict(
+          "INVALID_STATE_TRANSITION", "Only recorded training can be shared.");
     if (data.organizationId() == null)
-      throw new ApiException(
-          409,
+      throw BusinessException.conflict(
           "ORGANIZATION_REQUIRED",
           "Choose an organization when recording training before sharing it.");
     return transition(Status.SHARED_WITH_COACH, now);
@@ -111,8 +110,8 @@ public final class TrainingSession {
 
   public TrainingSession review(Instant now) {
     if (data.status() != Status.SHARED_WITH_COACH)
-      throw new ApiException(
-          409, "INVALID_STATE_TRANSITION", "Only shared training can be reviewed.");
+      throw BusinessException.conflict(
+          "INVALID_STATE_TRANSITION", "Only shared training can be reviewed.");
     return transition(Status.REVIEWED, now);
   }
 

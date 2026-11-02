@@ -53,7 +53,8 @@ public class CoachingService {
     access.requirePermission(org, user.id(), Permission.REVIEW_TRAINING);
     PageResult.limit(page, size);
     if (!Set.of("PENDING", "REVIEWED").contains(status))
-      throw new ApiException(400, "INVALID_STATUS", "Review status must be PENDING or REVIEWED.");
+      throw BusinessException.invalid(
+          "INVALID_STATUS", "Review status must be PENDING or REVIEWED.");
     return repository.reviews(org, status, page, size);
   }
 
@@ -73,8 +74,8 @@ public class CoachingService {
     access.requirePermission(org, actor, Permission.REVIEW_TRAINING);
     var before = requireReview(org, reviewId);
     if (before.version() != command.version())
-      throw new ApiException(
-          409, "CONCURRENT_MODIFICATION", "Reload the review before submitting feedback.");
+      throw BusinessException.conflict(
+          "CONCURRENT_MODIFICATION", "Reload the review before submitting feedback.");
     var now = clock.instant();
     repository.complete(before, before.reviewed(now));
     var feedback = Feedback.create(before, actor, command.body(), now);
@@ -92,8 +93,8 @@ public class CoachingService {
       var g = command.goal();
       if (g.sourceTrainingSessionId() != null
           && !g.sourceTrainingSessionId().equals(before.trainingSessionId()))
-        throw new ApiException(
-            400, "GOAL_TRAINING_MISMATCH", "A review goal must reference this training session.");
+        throw BusinessException.invalid(
+            "GOAL_TRAINING_MISMATCH", "A review goal must reference this training session.");
       goal =
           goalAssignment.assign(
               org,
@@ -132,11 +133,13 @@ public class CoachingService {
   public Goal goal(UUID id) {
     return repository
         .goal(profiles(), id)
-        .orElseThrow(() -> ApiException.missing("GOAL_NOT_FOUND"));
+        .orElseThrow(() -> BusinessException.missing("GOAL_NOT_FOUND"));
   }
 
   private TrainingReview requireReview(UUID org, UUID id) {
-    return repository.review(org, id).orElseThrow(() -> ApiException.missing("REVIEW_NOT_FOUND"));
+    return repository
+        .review(org, id)
+        .orElseThrow(() -> BusinessException.missing("REVIEW_NOT_FOUND"));
   }
 
   private List<UUID> profiles() {

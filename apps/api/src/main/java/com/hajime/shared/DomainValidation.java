@@ -5,7 +5,7 @@ public final class DomainValidation {
   private DomainValidation() {}
 
   public static void require(boolean valid, String message) {
-    if (!valid) throw new ApiException(400, "INVALID_RECORD", message);
+    if (!valid) throw BusinessException.invalid("INVALID_RECORD", message);
   }
 
   public static <T> T required(T value, String name) {

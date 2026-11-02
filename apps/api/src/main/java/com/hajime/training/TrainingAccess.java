@@ -1,6 +1,6 @@
 package com.hajime.training;
 
-import com.hajime.shared.ApiException;
+import com.hajime.shared.BusinessException;
 import com.hajime.training.application.TrainingViews;
 import com.hajime.training.domain.TrainingRepository;
 import java.time.Clock;
@@ -28,8 +28,8 @@ public class TrainingAccess {
     var d =
         repository
             .inOrganization(id, organization)
-            .orElseThrow(() -> ApiException.missing("TRAINING_NOT_FOUND"));
-    if (!d.isShared()) throw ApiException.missing("TRAINING_NOT_FOUND");
+            .orElseThrow(() -> BusinessException.missing("TRAINING_NOT_FOUND"));
+    if (!d.isShared()) throw BusinessException.missing("TRAINING_NOT_FOUND");
     return TrainingViews.from(d);
   }
 
@@ -38,7 +38,7 @@ public class TrainingAccess {
     var session =
         repository
             .inOrganization(id, organization)
-            .orElseThrow(() -> ApiException.missing("TRAINING_NOT_FOUND"));
+            .orElseThrow(() -> BusinessException.missing("TRAINING_NOT_FOUND"));
     repository.save(session.review(clock.instant()));
     events.publishEvent(new TrainingReviewed(id, organization));
   }

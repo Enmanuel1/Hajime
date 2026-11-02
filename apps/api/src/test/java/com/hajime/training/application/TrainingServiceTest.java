@@ -63,7 +63,7 @@ class TrainingServiceTest {
                         List.of(),
                         List.of()))));
     assertThatThrownBy(() -> service.share(id, 1))
-        .isInstanceOf(ApiException.class)
+        .isInstanceOf(BusinessException.class)
         .hasMessageContaining("Reload");
     verify(repository, never()).save(any());
     verifyNoInteractions(events);

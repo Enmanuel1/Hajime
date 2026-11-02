@@ -2,7 +2,7 @@ package com.hajime.coaching.domain;
 
 import static org.assertj.core.api.Assertions.*;
 
-import com.hajime.shared.ApiException;
+import com.hajime.shared.BusinessException;
 import java.time.*;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -14,10 +14,10 @@ class CoachingInvariantsTest {
   @Test
   void assignmentProtectsTextPriorityAndDateWithoutHttpValidation() {
     assertThatThrownBy(() -> assign(" ", Goal.Priority.NORMAL, null))
-        .isInstanceOf(ApiException.class);
-    assertThatThrownBy(() -> assign("Practice", null, null)).isInstanceOf(ApiException.class);
+        .isInstanceOf(BusinessException.class);
+    assertThatThrownBy(() -> assign("Practice", null, null)).isInstanceOf(BusinessException.class);
     assertThatThrownBy(() -> assign("Practice", Goal.Priority.NORMAL, LocalDate.of(2026, 10, 31)))
-        .isInstanceOf(ApiException.class);
+        .isInstanceOf(BusinessException.class);
     assertThat(assign(" Practice ", Goal.Priority.NORMAL, LocalDate.of(2026, 11, 1)).title())
         .isEqualTo("Practice");
   }
@@ -32,8 +32,8 @@ class CoachingInvariantsTest {
     var review =
         new TrainingReview(id, id, id, id, id, TrainingReview.Status.PENDING, now, null, 0);
     assertThatThrownBy(() -> Feedback.create(review, id, " ", now))
-        .isInstanceOf(ApiException.class);
+        .isInstanceOf(BusinessException.class);
     assertThatThrownBy(() -> Feedback.create(review, id, "x".repeat(4001), now))
-        .isInstanceOf(ApiException.class);
+        .isInstanceOf(BusinessException.class);
   }
 }

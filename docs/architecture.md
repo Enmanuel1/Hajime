@@ -62,7 +62,21 @@ The catalog migration is safe configuration seed for all environments. Demo iden
 
 ## Outbox and observability
 
-Important events write `outbox_event` atomically with the action. A processor port supports replacement. The opt-in dev/test local processor claims at most 50 rows via `FOR UPDATE SKIP LOCKED`, performs local delivery, then records success; failures receive bounded exponential backoff. A crash after delivery but before commit can redeliver; future providers must deduplicate by event UUID. The local sink logs event type/ID only and is not push delivery. Production does not consume events by default. Retention, dead-letter administration, and a real provider are deferred.
+Important events write `outbox_event` atomically with the action. The opt-in processor claims one
+row at a time using `FOR UPDATE SKIP LOCKED` in a short committed transaction. A random claim token
+and expiration fence acknowledgments from stale workers. Delivery runs outside the database transaction,
+with a configurable deadline and bounded in-flight calls. Timed-out providers keep their capacity slot
+until they actually exit; ignored interruption cannot create unlimited workers. Providers must still set
+I/O timeouts and deduplicate event UUIDs because cancellation cannot undo an accepted external side effect.
+Failures retry with capped exponential backoff; exhausted events, including crashes on the last attempt,
+are parked as dead letters. Database acknowledgment errors propagate and leave the lease recoverable,
+instead of being mislabeled as provider failures. Success/failure metrics increment after committed updates.
+
+The free local sink persists one deduplicated `local_notification_receipt` per event and logs identifiers
+only. It is not push delivery. Production does not consume events by default. Internal operator methods
+support explicit dead-letter requeue and bounded retention of processed rows; neither has a public HTTP
+endpoint. Receipt deduplication history survives outbox cleanup. A real external provider and its operational
+integration remain future work. See [outbox operations](outbox-operations.md) and ADR-011.
 
 Actuator exposes only safe health/info locally; production permits anonymous health only. Micrometer tracks successful and failed outbox deliveries. No monitoring services are deployed. Audit records contain identifiers, action, actor, organization, and minimal JSON metadata; journal and feedback text are excluded.
 
@@ -71,3 +85,11 @@ Actuator exposes only safe health/info locally; production permits anonymous hea
 UUID primary keys, timestamptz, UTC JDBC behavior, Flyway migrations, normal relational columns, sparse JSONB, indexes on ownership and pending queues. JPA open-in-view is disabled and Hibernate validates the schema. Bounded pagination limits requests to 100 rows; collection batching avoids per-row history collection fetching. Sort input is allowlisted rather than interpolated into SQL. Technique validation is batched, and commands resolve the actor once. V8 adds composite foreign keys tying training/review/feedback/goal scopes together and rejects blank goal text. Existing inconsistent data must be corrected explicitly before applying V8; previous migrations are unchanged. Database foreign keys can cross ownership boundaries; module code cannot.
 
 This is an initial runnable foundation. Membership/rank administration, OIDC onboarding, API rate limiting, production secrets/backup automation, cloud infrastructure, and offline reconciliation are deliberately not product flows in this release.
+
+
+## Transport-independent business errors
+
+`BusinessException` carries a semantic category, stable code and safe message, without HTTP status numbers.
+`shared.web.ApiErrors` alone maps categories to 400/401/403/404/409/422 ProblemDetail responses. Existing public
+error codes/statuses are preserved. An architecture test prevents domain/application code from depending
+on HTTP/Servlet types. Unexpected failures remain generic 500 responses with server-side diagnostics.

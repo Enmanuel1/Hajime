@@ -35,8 +35,8 @@ public record TrainingContent(
     sparring = List.copyOf(sparring);
     if (techniques.stream().map(TechniqueEntry::techniqueId).distinct().count()
         != techniques.size())
-      throw new com.hajime.shared.ApiException(
-          400, "DUPLICATE_TECHNIQUE", "Each technique may occur once per session.");
+      throw com.hajime.shared.BusinessException.invalid(
+          "DUPLICATE_TECHNIQUE", "Each technique may occur once per session.");
   }
 
   public boolean sameRecording(TrainingContent other) {

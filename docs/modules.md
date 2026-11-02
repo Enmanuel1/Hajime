@@ -16,8 +16,8 @@ Only types at `com.hajime.<module>` are exported. Subpackages are internal. Ever
 | competition | CompetitionContracts | Skeleton; neutral match/result model, official provenance |
 | media | MediaPort | Interface only; future S3 signing/authorization adapter |
 | audit | AuditTrail | Transactional audit adapter; consumes training/coaching events |
-| notification | NotificationDelivery, OutboxProcessor | Outbox writer and opt-in local scheduled delivery |
-| shared | ApiException, PageResult, RecordSource | Small shared kernel and common HTTP/OpenAPI adapters |
+| notification | NotificationDelivery, OutboxProcessor, OutboxMaintenance | Transactional outbox, leased delivery, local deduplication and internal maintenance |
+| shared | BusinessException, PageResult, RecordSource | Small shared kernel and common HTTP/OpenAPI adapters |
 
 Cross-module events carry identifiers and minimal metadata, never persistence entities. Training has no dependency on coaching: the latter subscribes to the public sharing event. Audit and notification consume events without being called by controllers. Review completion uses TrainingAccess with organization scope. Persistence methods require ownership IDs or organization scope for product reads.
 

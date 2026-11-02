@@ -2,61 +2,111 @@ package com.hajime.notification.infrastructure;
 
 import com.hajime.notification.*;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.sql.Timestamp;
-import java.time.Instant;
-import java.util.UUID;
+import jakarta.annotation.PreDestroy;
+import java.util.concurrent.*;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @ConditionalOnProperty(name = "hajime.outbox.local-enabled", havingValue = "true")
 public class ScheduledOutboxProcessor implements OutboxProcessor {
-  public record Pending(UUID id, String eventType, String payload, int attempts) {}
-
-  private final JdbcClient db;
+  private final OutboxStore store;
   private final NotificationDelivery delivery;
   private final MeterRegistry metrics;
+  private final OutboxSettings settings;
+  private final Semaphore deliverySlots;
+  private final java.util.Set<Thread> workers = ConcurrentHashMap.newKeySet();
+  private volatile boolean stopping;
 
   public ScheduledOutboxProcessor(
-      JdbcClient db, NotificationDelivery delivery, MeterRegistry metrics) {
-    this.db = db;
+      OutboxStore store,
+      NotificationDelivery delivery,
+      MeterRegistry metrics,
+      OutboxSettings settings) {
+    this.store = store;
     this.delivery = delivery;
     this.metrics = metrics;
+    this.settings = settings;
+    this.deliverySlots = new Semaphore(settings.maxConcurrentDeliveries());
+  }
+
+  @PreDestroy
+  void stop() {
+    stopping = true;
+    workers.forEach(Thread::interrupt);
   }
 
   @Scheduled(
       fixedDelayString = "${hajime.outbox.delay-ms:5000}",
       initialDelayString = "${hajime.outbox.initial-delay-ms:5000}")
-  @Transactional
   public int processBatch() {
-    var pending =
-        db.sql(
-                "select id,event_type,payload::text as payload,attempts from outbox_event where processed_at is null and next_attempt_at<=now() order by created_at,id limit 50 for update skip locked")
-            .query(Pending.class)
-            .list();
-    for (var event : pending) {
+    int claimed = 0;
+    while (!stopping && claimed < settings.batchSize() && !Thread.currentThread().isInterrupted()) {
+      if (!deliverySlots.tryAcquire()) break;
+      java.util.Optional<OutboxStore.Claim> pending;
       try {
-        delivery.deliver(event.id(), event.eventType(), event.payload());
-        db.sql(
-                "update outbox_event set processed_at=now(),attempts=attempts+1,last_error=null where id=:id")
-            .param("id", event.id())
-            .update();
-        metrics.counter("hajime.outbox.delivered", "type", event.eventType()).increment();
-      } catch (RuntimeException failure) {
-        var retry =
-            Instant.now().plusSeconds(Math.min(3600, 1L << Math.min(event.attempts() + 1, 12)));
-        db.sql(
-                "update outbox_event set attempts=attempts+1,next_attempt_at=:retry,last_error=:error where id=:id")
-            .param("retry", Timestamp.from(retry))
-            .param("error", failure.getClass().getSimpleName())
-            .param("id", event.id())
-            .update();
-        metrics.counter("hajime.outbox.failed", "type", event.eventType()).increment();
+        pending = store.claim();
+      } catch (RuntimeException e) {
+        deliverySlots.release();
+        throw e;
       }
+      if (pending.isEmpty()) {
+        deliverySlots.release();
+        break;
+      }
+      claimed++;
+      process(pending.get());
     }
-    return pending.size();
+    return claimed;
+  }
+
+  private void process(OutboxStore.Claim event) {
+    var task =
+        new FutureTask<Void>(
+            () -> {
+              delivery.deliver(event.id(), event.eventType(), event.payload());
+              return null;
+            });
+    // Capacity stays occupied until the real call exits, even when a provider ignores cancellation.
+    var worker =
+        Thread.ofVirtual()
+            .unstarted(
+                () -> {
+                  try {
+                    task.run();
+                  } finally {
+                    deliverySlots.release();
+                    workers.remove(Thread.currentThread());
+                  }
+                });
+    workers.add(worker);
+    try {
+      worker.start();
+    } catch (RuntimeException e) {
+      workers.remove(worker);
+      deliverySlots.release();
+      throw e;
+    }
+    String failure = null;
+    try {
+      task.get(settings.deliveryTimeout().toMillis(), TimeUnit.MILLISECONDS);
+    } catch (TimeoutException e) {
+      task.cancel(true);
+      failure = "DeliveryTimeout";
+    } catch (InterruptedException e) {
+      task.cancel(true);
+      Thread.currentThread().interrupt();
+      failure = "DeliveryInterrupted";
+    } catch (ExecutionException e) {
+      failure = e.getCause().getClass().getSimpleName();
+    }
+    // A storage/ack failure must escape: the lease enables recovery, not a false delivery failure.
+    if (failure == null) {
+      if (store.acknowledge(event))
+        metrics.counter("hajime.outbox.delivered", "type", event.eventType()).increment();
+    } else if (store.fail(event, failure)) {
+      metrics.counter("hajime.outbox.failed", "type", event.eventType()).increment();
+    }
   }
 }

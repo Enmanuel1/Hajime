@@ -2,7 +2,7 @@ package com.hajime.training.domain;
 
 import static org.assertj.core.api.Assertions.*;
 
-import com.hajime.shared.ApiException;
+import com.hajime.shared.BusinessException;
 import java.time.Instant;
 import java.util.*;
 import org.junit.jupiter.api.Test;
@@ -11,9 +11,9 @@ class TrainingInvariantsTest {
   @Test
   void internalCallersCannotCreateInvalidEntriesOrFutureTraining() {
     assertThatThrownBy(() -> new TrainingContent.TechniqueEntry(UUID.randomUUID(), 0, null, null))
-        .isInstanceOf(ApiException.class);
+        .isInstanceOf(BusinessException.class);
     assertThatThrownBy(() -> new TrainingContent.SparringEntry(101, 5, null))
-        .isInstanceOf(ApiException.class);
+        .isInstanceOf(BusinessException.class);
     assertThatThrownBy(
             () ->
                 new TrainingContent(
@@ -25,7 +25,7 @@ class TrainingInvariantsTest {
                     null,
                     Arrays.asList((TrainingContent.TechniqueEntry) null),
                     List.of()))
-        .isInstanceOf(ApiException.class);
+        .isInstanceOf(BusinessException.class);
     var now = Instant.parse("2026-11-01T12:00:00Z");
     var future =
         new TrainingContent(
@@ -39,7 +39,7 @@ class TrainingInvariantsTest {
             List.of());
     var id = UUID.randomUUID();
     assertThatThrownBy(() -> TrainingSession.record(id, id, id, null, future, now))
-        .isInstanceOf(ApiException.class);
+        .isInstanceOf(BusinessException.class);
   }
 
   @Test

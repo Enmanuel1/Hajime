@@ -70,3 +70,21 @@ The source changes do not migrate the developer's running database. V8 will be a
 on the next configured application startup; existing inconsistent rows cause an explicit migration
 failure. Historical migrations are unchanged. JWT verification uses local signing keys in tests;
 live Cognito provisioning/pool verification and external notification delivery remain deferred.
+
+
+## Business errors and leased outbox (2026-11-01)
+
+Verified directly in the repository using Temurin 21 and `./mvnw -o -B -ntp
+-Dmaven.repo.local=/private/tmp/hajime-m2 -pl apps/api clean verify`:
+**46 tests, zero failures/errors/skips; packaging, Modulith/transport boundaries and Spotless passed**.
+
+New coverage includes preserved business-to-HTTP mappings, competing queue workers, lease expiration,
+stale-worker fencing, exhausted/crashed final attempts, explicit requeue, bounded timeout behavior even
+when interruption is ignored, destination deduplication across concurrent delivery and delivery/ack
+crashes, bounded retention, invalid configuration, delivery without held DB claim locks, and database
+acknowledgment failure without false success/failure metrics. Recovery tests own a separate PostgreSQL
+container so events from the vertical-slice tests cannot contaminate queue claims.
+
+V9 was applied only in temporary test databases. Existing development data was not migrated. No cloud
+service, external notification provider, authentication flow or workflow was added, and no commit was made.
+See `outbox-operations.md` for configuration, dead-letter recovery and retention.

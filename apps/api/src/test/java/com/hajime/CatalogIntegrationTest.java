@@ -33,6 +33,6 @@ class CatalogIntegrationTest extends ProductionPostgresTest {
             () ->
                 catalog.requireTechniques(
                     art, java.util.List.of(ids.getFirst(), java.util.UUID.randomUUID())))
-        .isInstanceOf(com.hajime.shared.ApiException.class);
+        .isInstanceOf(com.hajime.shared.BusinessException.class);
   }
 }

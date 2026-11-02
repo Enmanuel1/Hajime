@@ -1,7 +1,7 @@
 package com.hajime.practitioner;
 
 import com.hajime.practitioner.infrastructure.ProfileRepository;
-import com.hajime.shared.ApiException;
+import com.hajime.shared.BusinessException;
 import java.math.BigDecimal;
 import java.util.*;
 import org.springframework.stereotype.Service;
@@ -30,12 +30,12 @@ public class Practitioners {
     return repository
         .find(id)
         .filter(p -> p.status().equals("ACTIVE"))
-        .orElseThrow(() -> ApiException.missing("PRACTITIONER_NOT_FOUND"));
+        .orElseThrow(() -> BusinessException.missing("PRACTITIONER_NOT_FOUND"));
   }
 
   public Profile requireOwned(UUID id, UUID user) {
     var p = require(id);
-    if (!p.userId().equals(user)) throw ApiException.denied();
+    if (!p.userId().equals(user)) throw BusinessException.denied();
     return p;
   }
 }

@@ -76,8 +76,8 @@ public class TrainingService {
   public PageResult<TrainingView> history(int page, int size, String sort) {
     PageResult.limit(page, size);
     if (!Set.of("occurredAt,desc", "occurredAt,asc").contains(sort))
-      throw new ApiException(
-          400, "INVALID_SORT", "Supported sort: occurredAt,asc or occurredAt,desc.");
+      throw BusinessException.invalid(
+          "INVALID_SORT", "Supported sort: occurredAt,asc or occurredAt,desc.");
     var result = repository.history(profiles(), page, size, sort.endsWith("asc"));
     return new PageResult<>(
         result.content().stream().map(TrainingViews::from).toList(),
@@ -92,8 +92,8 @@ public class TrainingService {
     var session = owned(id, actor);
     practitioners.requireOwned(session.snapshot().practitionerProfileId(), actor);
     if (!Objects.equals(session.snapshot().version(), expectedVersion))
-      throw new ApiException(
-          409, "CONCURRENT_MODIFICATION", "Reload the training session before sharing.");
+      throw BusinessException.conflict(
+          "CONCURRENT_MODIFICATION", "Reload the training session before sharing.");
     var org = session.snapshot().organizationId();
     if (org != null) {
       access.requireMember(org, actor);
@@ -117,6 +117,6 @@ public class TrainingService {
   private TrainingSession owned(UUID id, UUID actor) {
     return repository
         .owned(id, practitioners.ownedBy(actor).stream().map(Practitioners.Profile::id).toList())
-        .orElseThrow(() -> ApiException.missing("TRAINING_NOT_FOUND"));
+        .orElseThrow(() -> BusinessException.missing("TRAINING_NOT_FOUND"));
   }
 }

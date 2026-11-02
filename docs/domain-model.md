@@ -10,7 +10,7 @@
 | training | training_session, training_technique, sparring_entry | Athlete ownership, matching art, explicit transitions and optimistic version |
 | coaching | training_review, feedback, goal | Review belongs to organization; one initial feedback per review; goal targets member |
 | audit | audit_log | Append-only application writes in action transaction |
-| notification | outbox_event | Durable pending delivery; lock and retry until acknowledged |
+| notification | outbox_event, local_notification_receipt | Leased delivery, bounded retries/dead letters and durable local deduplication |
 
 ```mermaid
 erDiagram

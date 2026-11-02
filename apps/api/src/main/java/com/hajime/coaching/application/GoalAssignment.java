@@ -5,7 +5,7 @@ import com.hajime.coaching.domain.*;
 import com.hajime.martialart.Catalog;
 import com.hajime.organization.*;
 import com.hajime.practitioner.Practitioners;
-import com.hajime.shared.ApiException;
+import com.hajime.shared.BusinessException;
 import com.hajime.training.TrainingAccess;
 import java.time.Clock;
 import java.util.UUID;
@@ -52,8 +52,8 @@ class GoalAssignment {
     if (command.sourceTrainingSessionId() != null) {
       var session = training.sharedInOrganization(command.sourceTrainingSessionId(), org);
       if (!session.practitionerProfileId().equals(profile.id()))
-        throw new ApiException(
-            400, "GOAL_TRAINING_MISMATCH", "Training must belong to the target practitioner.");
+        throw BusinessException.invalid(
+            "GOAL_TRAINING_MISMATCH", "Training must belong to the target practitioner.");
     }
     var now = clock.instant();
     var goal =

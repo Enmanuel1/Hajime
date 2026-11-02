@@ -18,10 +18,8 @@ public class MartialArtPolicyRegistry {
   public MartialArtPolicy resolve(MartialArtCode code) {
     var policy = policies.get(code);
     if (policy == null)
-      throw new com.hajime.shared.ApiException(
-          422,
-          "MARTIAL_ART_NOT_SUPPORTED",
-          "No behavior policies registered for this martial art.");
+      throw com.hajime.shared.BusinessException.unsupported(
+          "MARTIAL_ART_NOT_SUPPORTED", "No behavior policies registered for this martial art.");
     return policy;
   }
 }

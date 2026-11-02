@@ -1,6 +1,6 @@
 package com.hajime.shared.web;
 
-import com.hajime.shared.ApiException;
+import com.hajime.shared.BusinessException;
 import java.util.*;
 import org.springframework.dao.*;
 import org.springframework.http.*;
@@ -12,9 +12,18 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 @RestControllerAdvice
 public class ApiErrors {
-  @ExceptionHandler(ApiException.class)
-  ProblemDetail domain(ApiException e) {
-    return problem(e.status(), e.code(), e.getMessage());
+  @ExceptionHandler(BusinessException.class)
+  ProblemDetail domain(BusinessException e) {
+    int status =
+        switch (e.kind()) {
+          case INVALID_INPUT -> 400;
+          case UNAUTHENTICATED -> 401;
+          case FORBIDDEN -> 403;
+          case NOT_FOUND -> 404;
+          case CONFLICT -> 409;
+          case UNSUPPORTED -> 422;
+        };
+    return problem(status, e.code(), e.getMessage());
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)

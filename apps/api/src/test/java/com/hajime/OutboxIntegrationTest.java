@@ -49,4 +49,38 @@ class OutboxIntegrationTest extends PostgresTest {
         .isEqualTo(2);
     verify(delivery, times(2)).deliver(eq(id), eq("TRAINING_SHARED"), eq("{}"));
   }
+
+  @Test
+  void deliveryDoesNotHoldTheDatabaseClaimLock() {
+    var id = UUID.randomUUID();
+    db.sql(
+            "insert into outbox_event(id,event_type,aggregate_id,payload) values(:id,'TEST',:id,'{}')")
+        .param("id", id)
+        .update();
+    doAnswer(
+            invocation -> {
+              assertThat(
+                      org.springframework.transaction.support.TransactionSynchronizationManager
+                          .isActualTransactionActive())
+                  .isFalse();
+              // A separate delivery connection can lock/read the row: the claim already committed.
+              assertThat(
+                      db.sql("select attempts from outbox_event where id=:id for update nowait")
+                          .param("id", id)
+                          .query(Integer.class)
+                          .single())
+                  .isEqualTo(1);
+              return null;
+            })
+        .when(delivery)
+        .deliver(eq(id), anyString(), anyString());
+    processor.processBatch();
+    assertThat(
+            db.sql("select processed_at is not null from outbox_event where id=:id")
+                .param("id", id)
+                .query(Boolean.class)
+                .single())
+        .isTrue();
+    verify(delivery).deliver(eq(id), anyString(), anyString());
+  }
 }

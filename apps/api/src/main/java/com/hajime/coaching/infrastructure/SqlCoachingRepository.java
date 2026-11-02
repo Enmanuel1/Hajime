@@ -63,8 +63,7 @@ public class SqlCoachingRepository implements CoachingRepository {
             .param("version", before.version())
             .update();
     if (changed != 1)
-      throw new ApiException(
-          409,
+      throw BusinessException.conflict(
           "CONCURRENT_MODIFICATION",
           "Another coach completed this review. Reload before retrying.");
   }
